@@ -98,9 +98,10 @@ export function resolveProviderAuthOverview(params: {
   const customKey = getCustomProviderApiKey(cfg, provider);
   const isBedrock = normalizeProviderId(provider) === "amazon-bedrock";
   const bedrockProviderCfg = isBedrock
-    ? Object.entries(cfg?.models?.providers ?? {}).find(
-        ([key]) => normalizeProviderId(key) === "amazon-bedrock",
-      )?.[1] as { auth?: string } | undefined
+    ? ((cfg?.models?.providers?.[provider] as { auth?: string } | undefined) ??
+        Object.entries(cfg?.models?.providers ?? {}).find(
+          ([key]) => normalizeProviderId(key) === "amazon-bedrock",
+        )?.[1] as { auth?: string } | undefined)
     : undefined;
   const bedrockAuthOverride = bedrockProviderCfg?.auth;
   const awsSdkEnvVar = isBedrock && (bedrockAuthOverride === "aws-sdk" || bedrockAuthOverride === undefined) ? resolveAwsSdkEnvVarName() : undefined;
