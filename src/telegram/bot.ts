@@ -18,8 +18,12 @@ import {
   resolveChannelGroupPolicy,
   resolveChannelGroupRequireMention,
 } from "../config/group-policy.js";
+import {
+  GROUP_POLICY_BLOCKED_LABEL,
+  warnMissingProviderGroupPolicyFallbackOnce,
+} from "../config/runtime-group-policy.js";
 import { loadSessionStore, resolveStorePath } from "../config/sessions.js";
-import { danger, logVerbose, shouldLogVerbose } from "../globals.js";
+import { danger, logVerbose, shouldLogVerbose, warn } from "../globals.js";
 import { formatUncaughtError } from "../infra/errors.js";
 import { getChildLogger } from "../logging.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
@@ -40,6 +44,7 @@ import {
   resolveTelegramStreamMode,
 } from "./bot/helpers.js";
 import { resolveTelegramFetch } from "./fetch.js";
+import { resolveTelegramRuntimeGroupPolicy } from "./group-access.js";
 import { createTelegramSendChatActionHandler } from "./sendchataction-401-backoff.js";
 
 export type TelegramBotOptions = {
@@ -121,6 +126,20 @@ export function createTelegramBot(opts: TelegramBotOptions) {
     accountId: opts.accountId,
   });
   const telegramCfg = account.config;
+
+  // Warn if Telegram provider config is missing and group policy falls back to allowlist
+  const { providerMissingFallbackApplied } = resolveTelegramRuntimeGroupPolicy({
+    providerConfigPresent: cfg.channels?.telegram !== undefined,
+    groupPolicy: telegramCfg.groupPolicy,
+    defaultGroupPolicy: cfg.channels?.defaults?.groupPolicy,
+  });
+  warnMissingProviderGroupPolicyFallbackOnce({
+    providerMissingFallbackApplied,
+    providerKey: "telegram",
+    accountId: account.accountId,
+    blockedLabel: GROUP_POLICY_BLOCKED_LABEL.group,
+    log: (message) => runtime.log?.(warn(message)),
+  });
 
   const fetchImpl = resolveTelegramFetch(opts.proxyFetch, {
     network: telegramCfg.network,
